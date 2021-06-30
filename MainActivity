@@ -1,0 +1,442 @@
+package 你的packageID;
+
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.util.Base64;
+import android.util.Log;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.nhi.mhbsdk.MHB;
+
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
+import net.lingala.zip4j.model.FileHeader;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.KeySpec;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+
+import io.flutter.embedding.android.FlutterActivity;
+import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.plugins.GeneratedPluginRegistrant;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+
+public class MainActivity extends FlutterActivity {
+
+  private static final String CHANNEL = "healthPassPort_channel";
+  private Context mContext;
+  private Context ContextSDK;
+  public static MHB mhb;
+  String res;
+  String text;
+  final OkHttpClient OKclient = new OkHttpClient();
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+
+
+    mContext = this;
+    ContextSDK = this;
+  }
+  //產生SHA256----------->
+  public static String getSHA256(String input) {
+
+    String toReturn = null;
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      digest.reset();
+      digest.update(input.getBytes("utf8"));
+      toReturn = String.format("%064x", new BigInteger(1, digest.digest()));
+    } catch (Exception e) {
+    e.printStackTrace();
+    }
+
+    return toReturn;
+  }
+
+  @Override
+  protected void onPause() {
+    super.onPause();
+
+    System.out.println("  onPause  ");
+
+  }
+
+  //SDK結束之後會執行這裡---------->
+  @Override
+  protected void onResume() {
+
+    super.onResume();
+    System.out.println("  onResume  ");
+
+    SharedPreferences pref = getSharedPreferences("openTime", MODE_PRIVATE);
+    String openTime = pref.getString("openTime","null"); //無資料就回傳null
+
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    Date now = new Date();
+    Timestamp ts1 = Timestamp.valueOf(sdf.format(now));
+
+    System.out.println("當前時間：" + sdf.format(now));
+    Long val =ts1.getTime(); //這裡就是Timestamp之後的數字
+
+    System.out.println("  openTime："+openTime);
+    System.out.println("  val.toString()："+val.toString());
+
+    test(openTime,val.toString());
+  }
+
+  @Override
+  protected void onStart() {
+
+    super.onStart();
+    System.out.println("  onStart  ");
+
+  }
+
+  //處理壓縮檔－－－－－－－－－>
+  public File fisToFile(FileInputStream fis, String filename) throws IOException {
+  File directory = this.ContextSDK.getFilesDir();
+  File outputFile = new File(directory, filename);
+  try {
+  FileOutputStream fos = new FileOutputStream(outputFile);
+  int c;
+
+  while ((c = fis.read()) != -1) {
+  fos.write(c);
+
+  }
+
+  fis.close();
+  fos.close();
+  } catch (FileNotFoundException e) {
+  throw e;
+  } catch (IOException e) {
+  throw e;
+  }
+  return outputFile;
+}
+
+public String fileToString(File file) throws IOException {
+int length = (int) file.length();
+
+byte[] bytes = new byte[length];
+FileInputStream in;
+try {
+in = new FileInputStream(file);
+in.read(bytes);
+in.close();
+} catch (FileNotFoundException e) {
+throw e;
+} catch (IOException e) {
+throw e;
+}
+return new String(bytes);
+}
+
+public List<String> getFNListFromZipFP(String path) throws ZipException {
+List<String> list = new ArrayList<String>();
+try {
+List<FileHeader> fileHeaders = new ZipFile(path).getFileHeaders();
+for (FileHeader fh : fileHeaders) {
+list.add(fh.getFileName());
+}
+} catch (ZipException e) {
+throw e;
+}
+return list;
+}
+
+
+
+//啟動健康存摺---------->
+public void startProc1() {
+
+  //初始化: MHB.configure()
+  try {
+    //服務啟動 Android MHB Class
+    mhb = MHB.configure(ContextSDK, "金鑰");
+  } catch (Exception e) {
+  e.printStackTrace();
+  }
+  //final Promise promise = null;
+
+  //1.初始化 SharedPreferences
+  SharedPreferences sharedPreferences= getSharedPreferences("test", Context.MODE_PRIVATE);
+  Map<String, ?> allKey = sharedPreferences.getAll();
+  for (Map.Entry<String, ?> entry : allKey.entrySet()) {
+  String key = entry.getKey();
+  if (key.startsWith("File_Ticket_")) {
+  //可依已紀錄的起始/結束時間戳記區間內查詢前次 SDK 存入的檔案識別碼
+  }
+  }
+
+  //2.服務啟動，起始 Android 畫面
+  mhb.startProc(new MHB.StartProcCallback() {
+  @Override
+  public void onStarProcSuccess() {
+  ////畫面已初始化呈現於第三方 APP
+  //畫面已render
+  System.out.print("onUIProcStart...");
+  //promise.resolve("OK");
+  }
+
+  @Override
+  public void onStartProcFailure(String errorCode) {
+  //promise.reject(errorCode, new Error(errorCode));
+  System.out.print("Error Code : "+errorCode);
+  //promise.reject(errorCode, new Error(errorCode));
+  }
+  });
+}
+
+//取得健康存摺資料，解壓縮並post api－－－－－－－－－－>
+public void test(
+    String startTimestamp,
+    String endTimestamp
+    ){
+//初始化 SharedPreferences
+  SharedPreferences sharedPreferences= getSharedPreferences(ContextSDK.getPackageName(), Activity.MODE_PRIVATE);
+  //以下列出檔案識別碼遞回查尋範例供參考使用
+  Map<String, ?> allKey = sharedPreferences.getAll(); for (Map.Entry<String, ?> entry : allKey.entrySet()) {
+  String key = entry.getKey();
+  if (key.startsWith("File_Ticket_")) {
+//可依已紀錄的起始/結束時間戳記區間內查詢前次 SDK 存入的檔案識別碼
+
+  String timeStamp = key.split("ket_")[1];
+  if( startTimestamp.compareTo(timeStamp) < 0 &&
+  endTimestamp.compareTo(timeStamp) > 0){
+  // final WritableMap map = new WritableNativeMap();
+  mhb.fetchData(key,new MHB.FetchDataCallback(){
+  @Override
+  public void onFetchDataSuccess(FileInputStream fis,String serverKey){
+//第三方 APP 自行處理 zip 檔案接收與解密 //解密時，需以前述方法產生之解密金鑰來解密該檔案，並將結果儲存為.json檔
+  System.out.print(" serverKey："+serverKey);
+  //解密時，需以[Api_Key][Server_Key]組成字串做為解密金鑰，之後以此解密 金鑰來解密該檔案，並將結果儲存為.json 檔
+  // String decryptKey = "金鑰" + serverKey;
+
+  //保存為zip
+  String filename = "tmp.zip";
+
+  /********產生金鑰********/
+
+  String password = "571d675df2ef430da83112520ccf2e77";
+  String salt = serverKey;
+  byte[] bytes = salt.getBytes(StandardCharsets.US_ASCII);
+  SecretKeyFactory factory = null;
+  try {
+  factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1"); } catch (NoSuchAlgorithmException e2) {
+  e2.printStackTrace(); }
+
+  KeySpec spec = new PBEKeySpec(password.toCharArray(), bytes, 1000, 256);
+  SecretKey tmp = null;
+  try {
+  tmp = factory.generateSecret(spec);
+  } catch (InvalidKeySpecException e2) { e2.printStackTrace();
+  }
+
+  String finalkey = Base64.encodeToString(tmp.getEncoded(), Base64.DEFAULT).trim();
+
+
+  /********產生金鑰ＥＮＤ********/
+  // char[] decryptKey2 = finalkey.toCharArray();
+  try {
+  System.out.print("這裏1");
+  File tmp2 = fisToFile(fis, filename);
+  System.out.print("這裏2");
+  String path = tmp2.getAbsolutePath();
+  System.out.print("這裏3");
+  //找出內含檔案名稱List
+  List<String> filenameList = getFNListFromZipFP(path);
+  System.out.print("這裏4");
+  //用密碼解壓縮檔案(zip4j unzip)
+  try {
+  System.out.print("  path:"+path);
+  ZipFile zipFile = new ZipFile(path);
+  System.out.print("  path2:"+ContextSDK.getFilesDir().getAbsolutePath());
+  System.out.print("  decryptKey2:"+finalkey);
+
+  // 如果解壓縮需要密碼
+  if(zipFile.isEncrypted()) {
+  zipFile.setPassword(finalkey.toCharArray());
+  }
+  System.out.print("  I just want to test.");
+  zipFile.extractAll(ContextSDK.getFilesDir().getAbsolutePath());
+
+  } catch (ZipException e) {
+  e.printStackTrace();
+  System.out.print("  error:"+e);
+  }
+
+  //使用zip4j unzip, zip4j 定義在LibMHB的android build gradle/dependencies block裡面
+  // new ZipFile(path, decryptKey.toCharArray()).extractAll(ContextSDK.getFilesDir().getAbsolutePath());
+  System.out.print("這裏5");
+  //把檔案內容read到res變數
+  for(int i = 0; i < filenameList.size(); i++) {
+  System.out.print("這裏6");
+  File f = new File(ContextSDK.getFilesDir().getAbsolutePath(), filenameList.get(i));
+  System.out.print("這裏7");
+  res = fileToString(f);
+  System.out.print("這裏8");
+  //map.putString(filenameList.get(i), res);
+  System.out.print("res0106:"+res);
+
+  res = res.replace("\r","");
+  res = res.replace("\n","");
+  res = res.replace("\\","");
+
+
+  @SuppressLint("SimpleDateFormat") SimpleDateFormat sDateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+  String date = sDateFormat.format(new java.util.Date());
+  String inputValue = date + "密碼"; //將日期和密碼放入sha256
+  final String sha256 = date + getSHA256(inputValue).toUpperCase(); //Token 參數1+參數2
+
+  // POST
+  JsonObject postData = new JsonObject();
+  postData.addProperty("Token", sha256);
+  postData.addProperty("MemberKey", text);
+  postData.addProperty("Data", res);
+
+  final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+  RequestBody postBody = RequestBody.create(JSON, postData.toString());
+  Request post = new Request.Builder()
+      .url("api URL網址")
+      .post(postBody)
+      .build();
+
+  //final ForgetPasswordData[] ForgetPasswordData1 = new ForgetPasswordData[1];
+
+  OKclient.newCall(post).enqueue(new Callback() {
+  @Override
+  public void onFailure(Call call, IOException e) {
+  e.printStackTrace();
+  }
+
+  @SuppressLint("SetTextI18n")
+  @Override
+  public void onResponse(Call call, Response response) {
+  try {
+  ResponseBody responseForgetPasswordBody = response.body();
+
+
+  if (!response.isSuccessful()) {
+  // System.out.print("Unexpected code０１：:"+response);
+  throw new IOException("Unexpected code： " + response);
+
+  }
+  System.out.print("responseForgetPasswordBody:"+responseForgetPasswordBody.string());
+  response.body().close();
+  } catch (Exception e) {
+  e.printStackTrace();
+  System.out.print("e.printStackTrace():"+e);
+
+  }
+
+  }
+
+  });
+
+  SharedPreferences sharedPreferences= getSharedPreferences(ContextSDK.getPackageName(), ContextSDK.MODE_PRIVATE);
+  SharedPreferences.Editor editor = sharedPreferences.edit();
+  editor.remove(key);
+  editor.clear(); //清空所有key，避免使用者產製太多次
+  editor.apply();
+
+  }
+
+
+  } catch (Exception e) {
+  System.out.print(" e.getMessage()0106:"+e.getMessage());
+  }
+
+  //回傳給JS端
+  // System.out.print(map);
+
+  } @Override
+  public void onFetchDataFailure(String errorCode){ //回傳 Error Code
+  System.out.print("Error Code from onFetchDataFailure : "+errorCode);
+  }
+  });
+  }else{
+  System.out.print("Noooooooo");
+  }
+  }
+  }
+
+}
+
+//和flutter串接的channel通道－－－－－－－－－－>
+@Override
+public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
+  super.configureFlutterEngine(flutterEngine);
+  //GeneratedPluginRegistrant.registerWith(flutterEngine);
+  new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
+      .setMethodCallHandler(
+      (call, result) -> {
+  // Note: this method is invoked on the main thread.
+  if (call.method.equals("getTestMessage")) {
+  Toast.makeText(mContext,"進入健康存摺", Toast.LENGTH_SHORT).show();
+
+  text = call.argument("text");
+  String batteryLevel2 = "可以傳送字串";
+
+  SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+  Date now = new Date();
+  Timestamp ts1 = Timestamp.valueOf(sdf.format(now));
+
+  System.out.println("當前時間：" + sdf.format(now));
+  Long val =ts1.getTime();
+
+  // Example 建立名為 pref 的 SharedPreferences 物件
+  SharedPreferences pref = getSharedPreferences("openTime", MODE_PRIVATE);
+  SharedPreferences.Editor editor =  pref.edit();
+  editor.putString("openTime", val.toString());
+  editor.commit();
+
+  startProc1();
+
+  result.success(res);
+
+  } else {
+  result.notImplemented();
+  }
+  }
+  );
+}
+}
